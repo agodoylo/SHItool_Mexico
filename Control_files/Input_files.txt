@@ -1,0 +1,17 @@
+Data File_name Col_name
+Population tpcell.asc POP_block
+Surface_water_storage sc.asc sc
+Recharge Rech.asc WRR
+Water_useage_pc wc.asc wupc
+Rainfall_variation CV_resamp.asc cv
+Pop_poor_access p.asc p
+Wastewater_pc WVcap.asc p_viv_nodren
+Land_class LC.asc VC
+Land_irrigation IA.asc IA
+Drinking_water DW.asc dw
+Literacy_rate pALF.asc palf
+Econ_act_pop eap.asc eap
+Average_income pci.asc pci
+Max_income maxi.asc maxI
+Min_income mini.asc minI
+SHI_Comparision SHI_index.out -

@@ -1,0 +1,11 @@
+Sub_index Weight
+Water_variation 0.13
+Water_scarcity 0.3
+Water_resource_exploitation 0.18
+Water_pollution 0.39
+Natural_capacity 0.19
+Physical_capacity 0.15
+Human_resource_capacity 0.3
+Economic_capacity 0.36
+
+
