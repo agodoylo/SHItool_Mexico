@@ -47,7 +47,7 @@ map_df['ID2']=map_df['ID']
 map_df2=map_df[['ID','ID2','area']]
 print map_df2.head() 
 #create dataframe wiht all data:
-inputfile = 'Fillmissing/missing_SHI_dataset_manzanas_future_impact.csv'
+inputfile = 'fakedataset_manzanas.csv'
 alldata = pd.read_csv(inputfile, header=0)
 
 alldata = alldata.set_index('ID').join(map_df2.set_index('ID2'))
@@ -499,7 +499,7 @@ if read_fail!=1: #Check to see if all files read correctly
 
     name_colum=alldata.loc[:,file_name]
     indicator_array_2 = name_colum.values
-    indicator_array_2[indicator_array_2==-4444]=np.nan 
+    #indicator_array_2[indicator_array_2==-4444]=np.nan 
             
     data_name="Max_income"
     print("Getting "+data_name+" data.....")
@@ -509,7 +509,7 @@ if read_fail!=1: #Check to see if all files read correctly
  
     name_colum=alldata.loc[:,file_name]
     indicator_array_3 = name_colum.values    
-    indicator_array_3[indicator_array_3==-4444]=np.nan 
+    #indicator_array_3[indicator_array_3==-4444]=np.nan 
     
     #-----undertake data calculations-----
     #-------------------------------------
@@ -641,5 +641,4 @@ if read_fail!=1: #Check to see if all files read correctly
 else:
     print ("FILE READ FAILED!!!!!")
  
-
 
