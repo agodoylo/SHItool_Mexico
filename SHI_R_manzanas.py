@@ -47,7 +47,7 @@ map_df['ID2']=map_df['ID']
 map_df2=map_df[['ID','ID2','area']]
 print map_df2.head() 
 #create dataframe wiht all data:
-inputfile = 'fakedataset_manzanas.csv'
+inputfile = 'syntheticdataset_manzanas.csv'
 alldata = pd.read_csv(inputfile, header=0)
 
 alldata = alldata.set_index('ID').join(map_df2.set_index('ID2'))
