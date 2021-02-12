@@ -3,6 +3,11 @@
 Created on Thu Jul 30 13:49:34 2020
 MDF extension on Jan 4 12:00 2021
 
+This script uses references from: 
+Jaramillo, 2018 - https://doi.org/10.1016/j.jhydrol.2018.05.070
+Huang and Cai, 2009 -  ISBN: 978-92-807-2953-5
+Babel et al., 2011 - https://doi.org/10.1007/s00267-011-9744-y
+
 @author: andr3 + agodoy
 """
 import pandas as pd
@@ -15,11 +20,8 @@ import geopandas as gpd
 np.set_printoptions(suppress=True, #prevent numpy exponential 
     formatter={'float_kind':'{:f}'.format})                        #notation on print, default False
 
-MXC_population = 19438576
-pumped_water = 430430000 #annual water pumped in from surrounding catchment.
 
-debug=1
-in_dir="Input_files/"#C:\\Modelling\\Mexico\\Python_SHI\\"
+in_dir="Input_files/"
 con_dir="Control_files/"
 
 #Zero
@@ -28,16 +30,16 @@ read_fail=0
 #====================================================
 #=====Get data, weightings and derive parameters=====
 #====================================================
-file_dir=(con_dir+"Input_files.txt")
+file_dir=(con_dir+"Input_files.txt")	#file with the name of the variables used in the tool
 indicator_data = pd.read_csv(file_dir, header=0, delim_whitespace=True)
-file_dir=(con_dir+"ahp_weighting_new.txt")
+file_dir=(con_dir+"ahp_weighting_new.txt") #file with the weights of the subindexes in the final SHI indexes (SHI, WSI and ACI)
 ahp_weight = pd.read_csv(file_dir, header=0, delim_whitespace=True)
 
 
 #======Universal data ====== 
 #===========================
 #shapefile with area of polygons:
-fp='shapefiles/manzanas/manzanas_cdmx.shp'
+fp='shapefiles/manzanas/manzanas_cdmx.shp' 
 map_df = gpd.read_file(fp)
 # check data type so we can see that this is not a normal dataframe, but a GEOdataframe
 print map_df.crs
@@ -52,46 +54,40 @@ alldata = pd.read_csv(inputfile, header=0)
 
 alldata = alldata.set_index('ID').join(map_df2.set_index('ID2'))
 del map_df['CVEGEO']
-print alldata.head()
-print(alldata.columns.tolist())
+print(alldata.columns.tolist()) #all variables names
 
 
 #-----Raw Data-----
 #------------------
-data_name="Population"
+data_name="Population" #per polygon
 print("Getting "+data_name+" data.....")
 find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
 file_name=find_data.iloc[0][2] #Find file name
-file_dir=(in_dir+file_name) #Create file directory string
 alldata[file_name] = alldata[file_name].replace(-4444,np.nan)
-name_colum=alldata.loc[:,file_name]
-population_array = name_colum.values
+name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+population_array = name_colum.values #Save population of polygons in an array
 print 'Zeros in Population', np.count_nonzero(population_array==0)
 population_array[population_array==-3333]=np.nan 
 WSI_array = np.zeros(len(population_array))
 ACI_array = np.zeros(len(population_array)) 
- 
   
-data_name="Recharge"
+data_name="Water_resources" #annual volume m3 
 print("Getting "+data_name+" data.....")
 find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
 file_name=find_data.iloc[0][2] #Find file name
-file_dir=(in_dir+file_name) #Create file directory string
-name_colum=alldata.loc[:,file_name]
-Rech_array = name_colum.values
+name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+WR_array = name_colum.values #Save variable values in an array
 name_colum=alldata.loc[:,'area']
-area_array = name_colum.values
-Rech_array = (Rech_array/1000)*365*area_array  #annual volume m3 
-Rech_array[Rech_array==-4444]=np.nan
-print 'Nans in Recharge', np.isnan(Rech_array).sum()      
+area_array = name_colum.values #Save area of polygons in an array
+WR_array[WR_array==-4444]=np.nan
+print 'Nans in WR', np.isnan(WR_array).sum()      
    
-data_name="Water_useage_pc"
+data_name="Water_useage_pc" #annual volume m3
 print("Getting "+data_name+" data.....")
 find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
 file_name=find_data.iloc[0][2] #Find file name
-file_dir=(in_dir+file_name)
-name_colum=alldata.loc[:,file_name]
-WUpc_array = name_colum.values
+name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+WUpc_array = name_colum.values #Save variable values in an array
 WUpc_array = WUpc_array.astype('float64')
 WUpc_array[ WUpc_array==-4444]=np.nan
 print 'Nans in Water_useage_pc', np.isnan(WUpc_array).sum() 
@@ -100,9 +96,11 @@ print 'Nans in Water_useage_pc', np.isnan(WUpc_array).sum()
 #-----Derived data-----
 #----------------------
 if read_fail!=1: #Check to see if all files read correctly 
-    WRpc_array = (Rech_array/population_array)+(pumped_water/MXC_population)   #Water resources per person
+    WRpc_array = (WR_array/population_array)  #Water resources per person
+    
     #======Water Variation (WV)====== 
     #================================
+    #Jaramillo(2018)
     print("Processing WV =======")
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Water_variation')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
@@ -111,52 +109,50 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    indicator_data[indicator_data['Data'].str.match(data_name)]
-    file_dir=(in_dir+file_name) #Create file directory string
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Search the variable column in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan  
     print 'Nans in Rainfall_variation', np.isnan(indicator_array_1).sum()  
   
     #-----undertake data calculations-----
     #-------------------------------------
-    indicator_array_1[indicator_array_1>=0.4]=1  
+    indicator_array_1[indicator_array_1>=0.4]=1  #Jaramillo(2018) Eq.3
             
     #-----Combine data into parameter-----
     #-------------------------------------
-    #Jaramillo Eq.2 and Eq.17
     indicator_array_X=indicator_array_1
-    WSI_array=WSI_array+(indicator_array_X*ahp)
+    WSI_array=WSI_array+(indicator_array_X*ahp) #Jaramillo(2018) Eq.2 and Eq.17
                  
+    #generate output file:
+    WV_data = alldata[['ID','CVEGEO']]
+    WV_data['WV_out'] = indicator_array_X
+    WV_data.to_csv('WV_out.csv',index=False) 
+    
+    map_df2 = map_df.set_index('ID').join(WV_data.set_index('ID'))
 
-    if debug==1:   
-	WV_data = alldata[['ID','CVEGEO']]
-	WV_data['WV_out'] = indicator_array_X
-	WV_data.to_csv('WV_out.csv',index=False) 
-        
-	map_df2 = map_df.set_index('ID').join(WV_data.set_index('ID'))
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='WV_out'
 
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize    (vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    #size of colorbars:
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    # add the colorbar to the figure:
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='WV_out'
-
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-        #size of colorbars:
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-        # add the colorbar to the figure
-	ax.patch.set(hatch='x', edgecolor='black')
-
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'WV Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('WV_out.png', dpi=fig.dpi)
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'WV Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('WV_out.png', dpi=fig.dpi)
 	
-	del WV_data
+    del WV_data
       
-    #======Water Scarcity (WS)====== 
+    #======Water Scarcity (WS)=======
+    #================================
+    #Jaramillo(2018)
     print("Processing WS =======")
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Water_scarcity')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
@@ -165,91 +161,95 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan 
     indicator_array_1[indicator_array_1==-3333]=np.nan 
     print 'Nans in Pop_poor_access', np.isnan(indicator_array_1).sum()      
-    indicator_array_1[indicator_array_1>=1]=1 
+    indicator_array_1[indicator_array_1>=1]=1 #Jaramillo(2018) Eq.5
   
     #-----undertake data calculations-----
     #-------------------------------------
     indicator_array_1 = indicator_array_1 #percentage of the population with poor access to water
     indicator_array_2 = 1700/WRpc_array #Falkenmark water stress indicator Jaramillo Eq.5 
-    indicator_array_2[indicator_array_2>=1]=1  
+    indicator_array_2[indicator_array_2>=1]=1 #Jaramillo(2018) Eq.5 
     indicator_array_2[indicator_array_2==-4444]=np.nan 
 
     #-----Combine data into parameter-----
     #-------------------------------------
     indicator_array_X=np.sqrt((indicator_array_1**2)+(indicator_array_2**2))/np.sqrt(2)
-    WSI_array=WSI_array+(indicator_array_X*ahp) #Jaramillo Eq.4 without adaquacy (a)
+    WSI_array=WSI_array+(indicator_array_X*ahp) #Jaramillo(2018) Eq.4 without adaquacy (a)
   
-        
-    if debug==1:   
-	WS_data = alldata[['ID','CVEGEO']]
-	WS_data['WS_out'] = indicator_array_X
-	WS_data.to_csv('WS_out.csv',index=False)
+    #generate output file:    
+    WS_data = alldata[['ID','CVEGEO']]
+    WS_data['WS_out'] = indicator_array_X
+    WS_data.to_csv('WS_out.csv',index=False)
  	
-	#add the corresponding column to the geopandas dataframe:
-	map_df2 = map_df.set_index('ID').join(WS_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='WS_out'
+    map_df2 = map_df.set_index('ID').join(WS_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='WS_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'WS Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('WS_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize    (vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-        del WS_data
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'WS Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('WS_out.png', dpi=fig.dpi)
 
-    #======Water Exploitation (WE)====== 
+    del WS_data
+
+    #======Water Exploitation (WE)======
+    #===================================    
     print("Processing WE =======")
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Water_resource_exploitation')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
             
     #-----undertake data calculations-----
     #-------------------------------------
-    indicator_array_1 = (WUpc_array/WRpc_array) #resource development rate
-    indicator_array_1[indicator_array_1>=0.4]=1  
+    indicator_array_1 = (WUpc_array/WRpc_array) #resource development rate - water resource/water usage
+    indicator_array_1[indicator_array_1>=0.4]=1  #Jaramillo(2018) Eq.9
     indicator_array_1[indicator_array_1==-4444]=np.nan  
            
     #-----Combine data into parameter-----
     #-------------------------------------
     indicator_array_X=indicator_array_1
     WSI_array=WSI_array+(indicator_array_X*ahp)
-    if debug==1:    
-	WE_data = alldata[['ID','CVEGEO']]
-	WE_data['WE_out'] = indicator_array_X
-	WE_data.to_csv('WE_out.csv',index=False)
+
+    #generate output file:
+    WE_data = alldata[['ID','CVEGEO']]
+    WE_data['WE_out'] = indicator_array_X
+    WE_data.to_csv('WE_out.csv',index=False)
         
-	map_df2 = map_df.set_index('ID').join(WE_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='WE_out'
+    map_df2 = map_df.set_index('ID').join(WE_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='WE_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'WE Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('WE_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	del WE_data
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'WE Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('WE_out.png', dpi=fig.dpi)
+
+    del WE_data
 
      
-    #======Water Polution (WP)====== 
+    #======Water Polution (WP)======
+    #===============================    
     print("Processing WP =======")
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Water_pollution')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
@@ -259,9 +259,8 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-3333]=np.nan 
     indicator_array_1[indicator_array_1==-4444]=np.nan 
     print 'Nans in Wastewater_pc', np.isnan(indicator_array_1).sum()      
@@ -271,31 +270,35 @@ if read_fail!=1: #Check to see if all files read correctly
     indicator_array_X=indicator_array_1
     WSI_array=WSI_array+(indicator_array_X*ahp)
        
-    if debug==1:   
-	WP_data = alldata[['ID','CVEGEO']]
-	WP_data['WP_out'] = indicator_array_X
-	WP_data.to_csv('WP_out.csv',index=False)
+    #generate output file:
+    WP_data = alldata[['ID','CVEGEO']]
+    WP_data['WP_out'] = indicator_array_X
+    WP_data.to_csv('WP_out.csv',index=False)
 
-	map_df2 = map_df.set_index('ID').join(WP_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='WP_out'
+    map_df2 = map_df.set_index('ID').join(WP_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='WP_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'WP Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('WP_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
+
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'WP Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('WP_out.png', dpi=fig.dpi)
 	
-        del WP_data
+    del WP_data
 
     #=====Natural Capacity (NC)=====
+    #===============================
     #Capacity to provide a hydrological service
+    #Percentage of vegetated or water-body area within a polygon (0 to 1)
     print("Processing NC =======") 
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Natural_capacity')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
@@ -305,41 +308,43 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan
         
     #-----undertake data calculations-----
     #-------------------------------------
     indicator_array_1[indicator_array_1>=1]=1 
+    
     #-----Combine data into parameter-----
     #-------------------------------------
     indicator_array_X=indicator_array_1
     ACI_array=ACI_array+(indicator_array_X*ahp) 
         
-    if debug==1:  
-	NC_data = alldata[['ID','CVEGEO']]
-	NC_data['NC_out'] = indicator_array_X
-	NC_data.to_csv('NC_out.csv',index=False)
+    #generate output file:
+    NC_data = alldata[['ID','CVEGEO']]
+    NC_data['NC_out'] = indicator_array_X
+    NC_data.to_csv('NC_out.csv',index=False)
   
-	map_df2 = map_df.set_index('ID').join(NC_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='NC_out'
+    map_df2 = map_df.set_index('ID').join(NC_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='NC_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'NC Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('NC_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	del NC_data
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'NC Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('NC_out.png', dpi=fig.dpi)
+
+    del NC_data
    
 
     #=====Physical Capacity (PC)=====
@@ -352,9 +357,8 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan  #any, mostly zeros
     indicator_array_1[indicator_array_1>=1]=1 
       
@@ -362,27 +366,25 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
     indicator_array_2 = name_colum.values
     indicator_array_2[indicator_array_2==-4444]=np.nan	
     indicator_array_2[indicator_array_2==-3333]=np.nan
     print 'Nans in Drinking_water', np.isnan(indicator_array_2).sum()      
     indicator_array_2[indicator_array_2>=1]=1 
-  
-
+ 
     data_name="Surface_water_storage"
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name) #Create file directory string
-    name_colum=alldata.loc[:,file_name]
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
     indicator_array_3 = name_colum.values
     indicator_array_3 = indicator_array_3.astype('float64')
     indicator_array_3[indicator_array_3==-3333]=np.nan  
     indicator_array_3[indicator_array_3==-4444]=np.nan  
     #-----undertake data calculations-----
     #-------------------------------------
+    #Jaramillo(2018) Eq.18 without surface water storage
     indicator_array_1=indicator_array_1*0.53 #irrigation multiplied by fraction of water used for irrigation/industry
     indicator_array_2=indicator_array_2*0.47 #drinkable water multiplied by fraction of water used for drinking
     indicator_array_3=indicator_array_3/WUpc_array #surface water 
@@ -392,30 +394,33 @@ if read_fail!=1: #Check to see if all files read correctly
     indicator_array_X=indicator_array_1+indicator_array_2+indicator_array_3 #Jaramillo Eq.18
     ACI_array=ACI_array+(indicator_array_X*ahp)
         
-    if debug==1:   
-	PC_data = alldata[['ID','CVEGEO']]
-	PC_data['PC_out'] = indicator_array_X
-	PC_data.to_csv('PC_out.csv',index=False) 
+    #generate output file:
+    PC_data = alldata[['ID','CVEGEO']]
+    PC_data['PC_out'] = indicator_array_X
+    PC_data.to_csv('PC_out.csv',index=False) 
 
-	map_df2 = map_df.set_index('ID').join(PC_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='PC_out'
+    map_df2 = map_df.set_index('ID').join(PC_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='PC_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'PC Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('PC_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
+
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'PC Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('PC_out.png', dpi=fig.dpi)
 	
-	del PC_data
+    del PC_data
        
     #=====Human Resource Capacity (HC)=====
+    # Babel et al. (2011)
     print("Processing HC =======")
     find_weight=ahp_weight[ahp_weight['Sub_index'].str.match('Human_resource_capacity')] #Find info from table
     ahp=find_weight.iloc[0][1] #Get weighting once for parameter
@@ -424,10 +429,8 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan 
     indicator_array_1[indicator_array_1==-3333]=np.nan
     print 'Nans in Literacy_rate', np.isnan(indicator_array_1).sum()      
@@ -437,8 +440,7 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-    name_colum=alldata.loc[:,file_name]
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
     indicator_array_2 = name_colum.values
     indicator_array_2[indicator_array_2==-4444]=np.nan
     indicator_array_2[indicator_array_2==-3333]=np.nan  
@@ -453,28 +455,30 @@ if read_fail!=1: #Check to see if all files read correctly
     indicator_array_X=(indicator_array_1+indicator_array_2)/2 #Jaramillo Eq.18
     ACI_array=ACI_array+(indicator_array_X*ahp)
         
-    if debug==1:   
-	HC_data = alldata[['ID','CVEGEO']]
-	HC_data['HC_out'] = indicator_array_X
-	HC_data.to_csv('HC_out.csv',index=False) 
+    #generate output file:
+    HC_data = alldata[['ID','CVEGEO']]
+    HC_data['HC_out'] = indicator_array_X
+    HC_data.to_csv('HC_out.csv',index=False) 
 
-	map_df2 = map_df.set_index('ID').join(HC_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='HC_out'
+    map_df2 = map_df.set_index('ID').join(HC_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='HC_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'HC Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('HC_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	del HC_data
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'HC Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('HC_out.png', dpi=fig.dpi)
+
+    del HC_data
         
     #=====Economic Capacity (EC)=====
     print("Processing EC =======")
@@ -485,29 +489,23 @@ if read_fail!=1: #Check to see if all files read correctly
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-
-    name_colum=alldata.loc[:,file_name]
-    indicator_array_1 = name_colum.values
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
+    indicator_array_1 = name_colum.values #Save variable values in an array
     indicator_array_1[indicator_array_1==-4444]=np.nan
 
     data_name="Min_income"
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
     file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
-
-    name_colum=alldata.loc[:,file_name]
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
     indicator_array_2 = name_colum.values
     #indicator_array_2[indicator_array_2==-4444]=np.nan 
             
     data_name="Max_income"
     print("Getting "+data_name+" data.....")
     find_data=indicator_data[indicator_data['Data'].str.match(data_name)] #Find info from table
-    file_name=find_data.iloc[0][2] #Find file name
-    file_dir=(in_dir+file_name)
- 
-    name_colum=alldata.loc[:,file_name]
+    file_name=find_data.iloc[0][2] #Find file name 
+    name_colum=alldata.loc[:,file_name] #Find variable name in the dataframe
     indicator_array_3 = name_colum.values    
     #indicator_array_3[indicator_array_3==-4444]=np.nan 
     
@@ -522,79 +520,84 @@ if read_fail!=1: #Check to see if all files read correctly
     indicator_array_X=(indicator_array_1-indicator_array_2)/(indicator_array_3-indicator_array_2) #Jaramillo Eq.18
     ACI_array=ACI_array+(indicator_array_X*ahp)
                 
-        
-    if debug==1:  
-        EC_data = alldata[['ID','CVEGEO']]
-	EC_data['EC_out'] = indicator_array_X
-	EC_data.to_csv('EC_out.csv',index=False)
+    #generate output file:
+    EC_data = alldata[['ID','CVEGEO']]
+    EC_data['EC_out'] = indicator_array_X
+    EC_data.to_csv('EC_out.csv',index=False)
 
-	map_df2 = map_df.set_index('ID').join(EC_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='EC_out'
+    map_df2 = map_df.set_index('ID').join(EC_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='EC_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'EC Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('EC_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(indicator_array_X), vmax=np.nanmax(indicator_array_X)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	del EC_data
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'EC Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('EC_out.png', dpi=fig.dpi)
+
+    del EC_data
 
 #===========================  
 #=====Index and Outputs=====
 #=========================== 
 if read_fail!=1: #Check to see if all files read correctly 
- 
-    if debug==1:    
-	WSI_data = alldata[['ID','CVEGEO']]
-	WSI_data['WSI_out'] = WSI_array
-	WSI_data.to_csv('WSI_out.csv',index=False)
+    #generate output file:
+    WSI_data = alldata[['ID','CVEGEO']]
+    WSI_data['WSI_out'] = WSI_array
+    WSI_data.to_csv('WSI_out.csv',index=False)
 
-	map_df2 = map_df.set_index('ID').join(WSI_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='WSI_out'
+    map_df2 = map_df.set_index('ID').join(WSI_data.set_index('ID'))
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(WSI_array), vmax=np.nanmax(WSI_array)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(WSI_array), vmax=np.nanmax(WSI_array)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='WSI_out'
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'WSI Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('WSI_out.png', dpi=fig.dpi)
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]),norm=plt.Normalize(vmin=np.nanmin(WSI_array), vmax=np.nanmax(WSI_array)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["green","yellow","red"]), norm=plt.Normalize(vmin=np.nanmin(WSI_array), vmax=np.nanmax(WSI_array)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
 
-	del WSI_data
-        
-        ACI_data = alldata[['ID','CVEGEO']]
-	ACI_data['ACI_out'] = ACI_array
-	ACI_data.to_csv('ACI_out.csv',index=False)
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'WSI Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('WSI_out.png', dpi=fig.dpi)
 
-	map_df2 = map_df.set_index('ID').join(ACI_data.set_index('ID'))
-	fig=plt.figure()
-	ax = plt.subplot(111, aspect='equal')
-	variable='ACI_out'
+    del WSI_data
 
-	map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(ACI_array), vmax=np.nanmax(ACI_array)),ax=ax)
-	sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(ACI_array), vmax=np.nanmax(ACI_array)))
-	sm._A = []
-	cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
-	ax.patch.set(hatch='x', edgecolor='black')
+    #generate output file:      
+    ACI_data = alldata[['ID','CVEGEO']]
+    ACI_data['ACI_out'] = ACI_array
+    ACI_data.to_csv('ACI_out.csv',index=False)
 
-	cbar = fig.colorbar(sm,cax=cax)
-	cbar.set_label(r'ACI Index', rotation=270,labelpad=18, fontsize=11)
-	ax.axis('off')
-	fig.savefig('ACI_out.png', dpi=fig.dpi)
+    map_df2 = map_df.set_index('ID').join(ACI_data.set_index('ID'))
 
-	del ACI_data
+    #generate figure:
+    fig=plt.figure()
+    ax = plt.subplot(111, aspect='equal')
+    variable='ACI_out'
+
+    map_df2.plot(column=variable,cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]),norm=plt.Normalize(vmin=np.nanmin(ACI_array), vmax=np.nanmax(ACI_array)),ax=ax)
+    sm = plt.cm.ScalarMappable(cmap=matplotlib.colors.LinearSegmentedColormap.from_list("", ["red","yellow","green"]), norm=plt.Normalize(vmin=np.nanmin(ACI_array), vmax=np.nanmax(ACI_array)))
+    sm._A = []
+    cax = fig.add_axes([ax.get_position().x1+0.0,ax.get_position().y0,0.02,ax.get_position().height])
+    ax.patch.set(hatch='x', edgecolor='black')
+
+    cbar = fig.colorbar(sm,cax=cax)
+    cbar.set_label(r'ACI Index', rotation=270,labelpad=18, fontsize=11)
+    ax.axis('off')
+    fig.savefig('ACI_out.png', dpi=fig.dpi)
+
+    del ACI_data
     
     #=====Calculate Index=====
     #========================= 
@@ -614,11 +617,14 @@ if read_fail!=1: #Check to see if all files read correctly
     
     #-----Output SHI as ASCII grid-----
     print("Writing SHI to gridded ASCII.....")
+    #generate output file:
     SHI_data = alldata[['ID','CVEGEO']]
     SHI_data['SHI_out'] = SHI_index_array
     SHI_data.to_csv('SHI_out.csv',index=False)
 
     map_df2 = map_df.set_index('ID').join(SHI_data.set_index('ID'))
+
+    #generate figure:
     fig=plt.figure()
     ax = plt.subplot(111, aspect='equal')
     variable='SHI_out'
@@ -640,5 +646,3 @@ if read_fail!=1: #Check to see if all files read correctly
     
 else:
     print ("FILE READ FAILED!!!!!")
- 
-
