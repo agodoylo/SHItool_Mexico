@@ -1,7 +1,7 @@
 Data File_name Col_name
 Population tpcell.asc POP_block
 Surface_water_storage sc.asc sc
-Recharge Rech.asc WRR
+Water_resources Rech.asc WRR
 Water_useage_pc wc.asc wupc
 Rainfall_variation CV_resamp.asc cv
 Pop_poor_access p.asc p
